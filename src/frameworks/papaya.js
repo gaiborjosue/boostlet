@@ -49,4 +49,75 @@ export class Papaya extends Framework {
     // replace nv canvas with new one
     originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
   }
+
+  set_mask(new_mask) {
+
+    // merge image + mask
+    // and then call set_image with that information
+
+    let image = this.get_image(true);
+
+    // TODO here we need to flip one more time, this is until
+    // we use the official niivue infrastructure for adding
+    // a segmentation layer
+    let originalcanvas = this.instance[0].viewer.canvas;
+
+    let newcanvas = window.document.createElement('canvas');
+    newcanvas.width = originalcanvas.width;
+    newcanvas.height = originalcanvas.height;
+
+    // put new_pixels down
+    let ctx = newcanvas.getContext('2d');
+
+    let imageclamped = new Uint8ClampedArray(image.width * image.height * 4);
+
+    console.log(imageclamped)
+
+    let imagedata = new ImageData(imageclamped, image.width, image.height);
+
+    ctx.putImageData(imagedata, 0, 0);
+
+    image = ctx.getImageData(0, 0, newcanvas.width, newcanvas.height);
+    // end of flip
+
+    let masked_image = Util.harden_mask(image.data, new_mask);
+
+    this.set_image(masked_image, true, true); // rgba data, no flip
+  }
+
+  select_box(callback) {
+
+    // alert("Click on top left and bottom rght coordinated of the desired selection box.")
+    let isFirstClick = true;
+    let x1, y1, x2, y2;
+
+    // Function to handle the mouse click event
+    function handleClick(event) {
+      if (isFirstClick) {
+        // Capture x1 and y1 on the first click
+        x1 = event.clientX;
+        y1 = event.clientY;
+        console.log(`First click: (X1: ${x1}, Y1: ${y1})`);
+        isFirstClick = false;
+      } else {
+        // Capture x2 and y2 on the second click
+        x2 = event.clientX;
+        y2 = event.clientY;
+        console.log(`Second click: (X2: ${x2}, Y2: ${y2})`);
+        isFirstClick = true;
+
+        let topleft = { x: x1, y: y1 };
+        let bottomright = { x: x2, y: y2 };
+
+        callback(topleft, bottomright);
+      }
+
+      // let topleft = {x: 529, y: 480};
+      // let bottomright = {x: 667, y: 588};
+      // callback(topleft, bottomright);
+    }
+
+    // Add a click event listener to the document
+    document.addEventListener("click", handleClick);
+  }
 }
