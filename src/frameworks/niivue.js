@@ -87,6 +87,8 @@ export class NiiVue extends Framework {
    **/
   set_image(new_pixels, is_rgba, no_flip) {
 
+    console.log(new_pixels);
+
     // TODO this is hacky since we dont work with the real volume yet
     // create new canvas
     // put pixels on canvas
@@ -111,7 +113,6 @@ export class NiiVue extends Framework {
     } else {
 
       new_pixels_rgba = Util.grayscale_to_rgba(new_pixels);
-
 
     }
 
