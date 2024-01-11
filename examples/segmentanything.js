@@ -1,7 +1,7 @@
 script = document.createElement("script");
 script.type = "text/javascript";
-// script.src = "https://gaiborjosue.github.io/boostlet/dist/boostlet.min.js";
-script.src = "http://127.0.0.1:5500/dist/boostlet.min.js"
+script.src = "https://boostlet.org/dist/boostlet.min.js"
+//script.src = "http://127.0.0.1:5500/boostlet/dist/boostlet.min.js"
 script.onload = run;
 document.head.appendChild(script);
 eval(script);

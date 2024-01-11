@@ -4,6 +4,7 @@ import {NiiVue} from './frameworks/niivue.js';
 import { OpenSeaDragon } from './frameworks/openseadragon.js';
 import { Xtk } from './frameworks/xtk.js';
 import { Papaya } from './frameworks/papaya.js';
+import { Ami } from './frameworks/ami.js';
 
 export class Util {
   
@@ -34,6 +35,10 @@ export class Util {
     } else if (Util.is_defined(window.papayaContainers)) {
 
       framework = new Papaya(window.papayaContainers);
+
+    } else if (Util.is_defined(window.AMI)) {
+
+      framework = new Ami(loader.data[0]);
     }
 
     // TODO: fallback to general canvas or webgl framework
