@@ -45,7 +45,9 @@
         </div>
 
         <script>
-            window.addEventListener('load', window.TESTCOMPLETED=true);
+            window.addEventListener('load', () => setTimeout(function(){
+                window.TESTCOMPLETED = true;
+                }, 1000));
         </script>
 
     </body>
