@@ -15,8 +15,13 @@ export class Xtk extends Framework {
     let image = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let rgba_image = Util.rgba_to_grayscale(image.data);
 
-    return { data: rgba_image, width: image.width, height: image.height };
+    if(from_canvas) {
+      return { data: image.data, width: image.width, height: image.height };
+    }
+    else {
+      return { data: rgba_image, width: image.width, height: image.height };
     // return {'data':pixels, 'width':image.width, 'height':image.height};
+    }
   }
 
   set_image(new_pixels) {
@@ -51,71 +56,44 @@ export class Xtk extends Framework {
   }
 
   set_mask(new_mask) {
-    let image = this.get_image();
 
-    // TODO here we need to flip one more time, this is until
-    // we use the official niivue infrastructure for adding
-    // a segmentation layer
+    let image = this.get_image(true);
+
+
     let originalcanvas = this.instance.ca;
+    let ctxOriginal = originalcanvas.getContext('2d');
+    let imageDataOriginal = ctxOriginal.getImageData(0, 0, originalcanvas.width, originalcanvas.height);
+    let pixelsOriginal = imageDataOriginal.data;
 
     let newcanvas = window.document.createElement('canvas');
     newcanvas.width = originalcanvas.width;
     newcanvas.height = originalcanvas.height;
     
-    // put new_pixels down
     let ctx = newcanvas.getContext('2d');
 
     let imageclamped = new Uint8ClampedArray(image.data);
 
-    let imagedata = new ImageData(imageclamped, image.width, image.height);
+    let imagedata = new ImageData(imageclamped, newcanvas.width, newcanvas.height);
 
     ctx.putImageData(imagedata, 0, 0);
 
-    ctx.save();
-    ctx.scale(1, -1);
-    ctx.drawImage(newcanvas, 0, -newcanvas.height);
-    ctx.restore();
-
     image = ctx.getImageData(0, 0, newcanvas.width, newcanvas.height);
-    // end of flip
 
     let masked_image = Util.harden_mask(image.data, new_mask);
 
-    this.set_image(masked_image); // rgba data, no flip
+    let masked_image_as_imagedata = new ImageData(masked_image, newcanvas.width, newcanvas.height);
+
+    ctx.putImageData(masked_image_as_imagedata, 0, 0); // rgba data, no flip
+
+    originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
   }
 
   select_box(callback) {
-    // alert("Click on top left and bottom rght coordinated of the desired selection box.")
-    let isFirstClick = true;
-    let x1, y1, x2, y2;
+    let canvas = this.instance.ca;
 
-    // Function to handle the mouse click event
-    function handleClick(event) {
-      if (isFirstClick) {
-        // Capture x1 and y1 on the first click
-        x1 = event.clientX;
-        y1 = event.clientY;
-        console.log(`First click: (X1: ${x1}, Y1: ${y1})`);
-        isFirstClick = false;
-      } else {
-        // Capture x2 and y2 on the second click
-        x2 = event.clientX;
-        y2 = event.clientY;
-        console.log(`Second click: (X2: ${x2}, Y2: ${y2})`);
-        isFirstClick = true;
-
-        let topleft = { x: x1, y: y1 };
-        let bottomright = { x: x2, y: y2 };
-
-        callback(topleft, bottomright);
-      }
-
-      // let topleft = {x: 529, y: 480};
-      // let bottomright = {x: 667, y: 588};
-      // callback(topleft, bottomright);
-    }
-
-    // Add a click event listener to the document
-    document.addEventListener("click", handleClick);
+    BoxCraft.createDraggableBBox(canvas, function (topleft, bottomright) {
+      console.log("Inside Draggable BBox", topleft, bottomright);
+      callback(topleft, bottomright);
+    });
   }
 }

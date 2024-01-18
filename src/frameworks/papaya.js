@@ -15,8 +15,13 @@ export class Papaya extends Framework {
     let image = ctx.getImageData(0, 0, canvas.width, canvas.height);
     let rgba_image = Util.rgba_to_grayscale(image.data)
 
-    return { data: rgba_image, width: image.width, height: image.height };
+    if(from_canvas) {
+      return { data: image.data, width: image.width, height: image.height };
+    }
+    else {
+      return { data: rgba_image, width: image.width, height: image.height };
     // return {'data':pixels, 'width':image.width, 'height':image.height};
+    }
   }
 
   set_image(new_pixels) {
@@ -48,5 +53,47 @@ export class Papaya extends Framework {
 
     // replace nv canvas with new one
     originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
+  }
+
+  set_mask(new_mask) {
+
+    let image = this.get_image(true);
+
+
+    let originalcanvas = this.instance[0].viewer.canvas;
+    let ctxOriginal = originalcanvas.getContext('2d');
+    let imageDataOriginal = ctxOriginal.getImageData(0, 0, originalcanvas.width, originalcanvas.height);
+    let pixelsOriginal = imageDataOriginal.data;
+
+    let newcanvas = window.document.createElement('canvas');
+    newcanvas.width = originalcanvas.width;
+    newcanvas.height = originalcanvas.height;
+    
+    let ctx = newcanvas.getContext('2d');
+
+    let imageclamped = new Uint8ClampedArray(image.data);
+
+    let imagedata = new ImageData(imageclamped, newcanvas.width, newcanvas.height);
+
+    ctx.putImageData(imagedata, 0, 0);
+
+    image = ctx.getImageData(0, 0, newcanvas.width, newcanvas.height);
+
+    let masked_image = Util.harden_mask(image.data, new_mask);
+
+    let masked_image_as_imagedata = new ImageData(masked_image, newcanvas.width, newcanvas.height);
+
+    ctx.putImageData(masked_image_as_imagedata, 0, 0); // rgba data, no flip
+
+    originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
+  }
+
+  select_box(callback) {
+    let canvas = this.instance[0].viewer.canvas;
+
+    BoxCraft.createDraggableBBox(canvas, function (topleft, bottomright) {
+      console.log("Inside Draggable BBox", topleft, bottomright);
+      callback(topleft, bottomright);
+    });
   }
 }
