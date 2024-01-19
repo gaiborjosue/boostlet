@@ -1,39 +1,11 @@
-let boostletLoaded = false;
-let boxCraftLoaded = false;
+script = document.createElement("script");
+script.type = "text/javascript";
+// script.src = "https://boostlet.org/dist/boostlet.min.js";
+script.src = "http://localhost:5500/dist/boostlet.min.js";
 
-function tryRun() {
-  if (boostletLoaded && boxCraftLoaded) {
-    run();
-  }
-}
-
-// Load Boostlet script
-let scriptBoostlet = document.createElement("script");
-scriptBoostlet.type = "text/javascript";
-// scriptBoostlet.src = "https://boostlet.org/dist/boostlet.min.js";
-// scriptBoostlet.src = "https://shrutivarade.github.io/boostlet/dist/boostlet.min.js";
-scriptBoostlet.src = "http://localhost:5500/dist/boostlet.min.js";
-scriptBoostlet.onload = function() {
-  boostletLoaded = true;
-  tryRun();
-};
-
-// scriptBoostlet.onload = run;
-
-document.head.appendChild(scriptBoostlet);
-
-// Load BoxCraft script
-let scriptBoxCraft = document.createElement("script");
-scriptBoxCraft.type = "text/javascript";
-scriptBoxCraft.src = "https://shrutivarade.github.io/BoxCraft/dist/boxCraft.min.js";
-// scriptBoxCraft.src = "http://localhost:8888/dist/boxcraft.min.js";
-scriptBoxCraft.onload = function() {
-  boxCraftLoaded = true;
-  tryRun();
-};
-document.head.appendChild(scriptBoxCraft);
-
-
+script.onload = run;
+document.head.appendChild(script);
+eval(script);
 
 function run() {
   
@@ -108,7 +80,3 @@ async function segment_box(topleft, bottomright) {
   });
 
 };
-
-
-
-
