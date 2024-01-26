@@ -39,6 +39,10 @@ export class Util {
     } else if (Util.is_defined(window.AMI)) {
 
       framework = new Ami(loader.data[0]);
+
+    } else if (Util.is_defined(window.vtk)) {
+        
+      framework = new Vtk(loader.data[0]);
     }
 
     // TODO: fallback to general canvas or webgl framework

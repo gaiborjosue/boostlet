@@ -13,10 +13,15 @@ export class Papaya extends Framework {
     let ctx = canvas.getContext("2d");
 
     let image = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    let rgba_image = Util.rgba_to_grayscale(image.data)
+    let rgba_image = Util.rgba_to_grayscale(image.data);
 
-    return { data: rgba_image, width: image.width, height: image.height };
+    if(from_canvas) {
+      return { data: image.data, width: image.width, height: image.height };
+    }
+    else {
+      return { data: rgba_image, width: image.width, height: image.height };
     // return {'data':pixels, 'width':image.width, 'height':image.height};
+    }
   }
 
   set_image(new_pixels) {
@@ -52,41 +57,35 @@ export class Papaya extends Framework {
 
   set_mask(new_mask) {
 
-    // merge image + mask
-    // and then call set_image with that information
-
     let image = this.get_image(true);
 
-    // TODO here we need to flip one more time, this is until
-    // we use the official niivue infrastructure for adding
-    // a segmentation layer
+
     let originalcanvas = this.instance[0].viewer.canvas;
 
     let newcanvas = window.document.createElement('canvas');
     newcanvas.width = originalcanvas.width;
     newcanvas.height = originalcanvas.height;
-
-    // put new_pixels down
+    
     let ctx = newcanvas.getContext('2d');
 
-    let imageclamped = new Uint8ClampedArray(image.width * image.height * 4);
+    let imageclamped = new Uint8ClampedArray(image.data);
 
-    console.log(imageclamped)
-
-    let imagedata = new ImageData(imageclamped, image.width, image.height);
+    let imagedata = new ImageData(imageclamped, newcanvas.width, newcanvas.height);
 
     ctx.putImageData(imagedata, 0, 0);
 
     image = ctx.getImageData(0, 0, newcanvas.width, newcanvas.height);
-    // end of flip
 
     let masked_image = Util.harden_mask(image.data, new_mask);
 
-    this.set_image(masked_image, true, true); // rgba data, no flip
+    let masked_image_as_imagedata = new ImageData(masked_image, newcanvas.width, newcanvas.height);
+
+    ctx.putImageData(masked_image_as_imagedata, 0, 0); // rgba data, no flip
+
+    originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
   }
 
   select_box(callback) {
-
     // alert("Click on top left and bottom rght coordinated of the desired selection box.")
     let isFirstClick = true;
     let x1, y1, x2, y2;
@@ -119,5 +118,5 @@ export class Papaya extends Framework {
 
     // Add a click event listener to the document
     document.addEventListener("click", handleClick);
-  }
+    }
 }
