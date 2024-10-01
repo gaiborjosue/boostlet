@@ -1,190 +1,89 @@
-import {Framework} from '../framework.js';
-
-import {Util} from '../util.js';
-import {CanvasFallback} from './canvasFallback.js';
+import { Framework } from '../framework.js';
+import { Util } from '../util.js';
+import { CanvasFallback } from './canvasFallback.js';
 
 export class NiiVue extends Framework {
-  
   constructor(instance) {
-
     super(instance);
     this.name = 'niivue';
-    this.canvasFallback = new CanvasFallback();
-
-    this.flip_on_png = true;
-
-    this.onMouseDown = false;
-    this.x1 = null;
-    this.y1 = null;
-    this.x2 = null;
-    this.y2 = null;
-
   }
 
-  get_image(from_canvas) {
-
-    let element = this.instance.canvas;
-    let pixels = null;
-    let width = null;
-    let height = null;
-
-
-    // TODO this is hacky going through the canvas
-    // later should grab the real volume data
-
-    let old_crosshaircolor = this.instance.opts.crosshairColor;
-    let old_crosshairwidth = this.instance.opts.crosshairWidth;
-
-    this.instance.setCrosshairColor([0,0,0,0]);
-    this.instance.opts.crosshairWidth=0;
-    this.instance.updateGLVolume();
-
-
-    let ctx = this.instance.gl;
-
-    
-    width = ctx.drawingBufferWidth;
-    height = ctx.drawingBufferHeight;
-
-    pixels = new Uint8Array(width * height * 4);
-    ctx.readPixels(
-      0, 
-      0, 
-      width, 
-      height, 
-      ctx.RGBA, 
-      ctx.UNSIGNED_BYTE, 
-      pixels);
-
-    // restore crosshairs
-    this.instance.setCrosshairColor(old_crosshaircolor);
-    this.instance.opts.crosshairWidth = old_crosshairwidth;
-
-    if (!Util.is_defined(from_canvas)) {
-
-      // convert rgba pixels to grayscale
-      pixels = Util.rgba_to_grayscale(pixels);
-
+  async get_image(from_volume = true) {
+    if (from_volume && this.instance.volumes.length > 0) {
+      let dims = this.instance.volumes[0].dims.slice(1, 4);
+      let start = [0, 0, 0];
+      let end = [dims[0] - 1, dims[1] - 1, dims[2] - 1];
+      let volumeData = this.instance.volumes[0].getVolumeData(start, end);
+      return {
+        'data': volumeData,
+        'width': dims[1],
+        'height': dims[2],
+      };
     } else {
-
-      // TODO
-      // not easily possible yet
-      // we could hack it using 
-      // nv.back.get_value(x,y,z)
-      // based on the dimensions
-      // nv.back.dims.slice(1);
-      // but devs promised easy access in the future
-
+      // Fallback: Use canvas pixel extraction
+      let ctx = this.instance.gl;
+      let width = ctx.drawingBufferWidth;
+      let height = ctx.drawingBufferHeight;
+      let pixels = new Uint8Array(width * height * 4);
+      ctx.readPixels(0, 0, width, height, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
+      return { data: pixels, width, height };
     }
-
-
-    return {'data':pixels, 'width':width, 'height':height};
-
   }
 
   /**
-   * Sets the NiiVue.js image.
-   * 
-   * If is_rgba==true, we do *not* convert to RGBA before setting on canvas.
-   **/
-  set_image(new_pixels, is_rgba, no_flip) {
+   * Set the image by applying new pixel data to the volume
+   * @param {Uint8Array} new_pixels - The new pixel data
+   * @param {boolean} is_rgba - Whether the data is in RGBA format
+   * @param {boolean} no_flip - Whether to skip the flip action
+   */
+  async set_image(new_pixels, is_rgba = true, no_flip = false) {
+    if (this.instance.volumes.length > 0) {
+      let volume = this.instance.volumes[0];
+      let dims = volume.dims.slice(1, 4); // Extract dimensions
+      let new_data = is_rgba
+        ? new_pixels
+        : Util.grayscale_to_rgba(new_pixels); // Convert to RGBA if needed
 
-    // TODO this is hacky since we dont work with the real volume yet
-    // create new canvas
-    // put pixels on canvas
-    // show canvas
-    // hide on click
+      // Apply the new volume data
+      volume.setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], new_data);
 
-    let originalcanvas = this.instance.canvas;
+      if (!no_flip) {
+        // Flip if required
+        this.instance.setFlipYAxis(true);
+      }
 
-    let newcanvas = window.document.createElement('canvas');
-    newcanvas.width = originalcanvas.width;
-    newcanvas.height = originalcanvas.height;
-
-    // put new_pixels down
-    let ctx = newcanvas.getContext('2d');
-
-    let new_pixels_rgba = null;
-
-    if (Util.is_defined(is_rgba)) {
-
-      new_pixels_rgba = new_pixels;
-
+      this.instance.updateGLVolume(); // Redraw the updated volume
     } else {
-
-      new_pixels_rgba = Util.grayscale_to_rgba(new_pixels);
-
-
+      console.error('No volumes loaded in Niivue');
     }
-
-    let new_pixels_clamped = new Uint8ClampedArray(new_pixels_rgba);
-
-    let new_image_data = new ImageData(new_pixels_clamped, newcanvas.width, newcanvas.height);
-    
-
-    ctx.putImageData(new_image_data, 0, 0);
-
-    if (!Util.is_defined(no_flip)) {
-      // some flipping action
-      ctx.save();
-      ctx.scale(1, -1);
-      ctx.drawImage(newcanvas, 0, -newcanvas.height);
-      ctx.restore();
-    }
-
-
-    newcanvas.onclick = function() {
-
-      // on click, we will restore the nv canvas
-      newcanvas.parentNode.replaceChild(originalcanvas, newcanvas);
-
-    }
-
-    // replace nv canvas with new one
-    // originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
-    newcanvas.style.width = originalcanvas.clientWidth+'px';
-    newcanvas.style.height = originalcanvas.clientHeight+'px';
-    originalcanvas.parentNode.replaceChild(newcanvas, originalcanvas);
-
   }
 
-  set_mask(new_mask) {
+  /**
+   * Set the mask by overlaying the new mask data
+   * @param {Uint8Array} new_mask - The mask data to apply
+   */
+  async set_mask(new_mask) {
+    if (this.instance.volumes.length > 0) {
+      // Step 1: Clone the existing volume to create an overlay
+      let overlay = this.instance.cloneVolume(0);
+      overlay.img.fill(0); // Initialize the overlay with zeros
 
-    // merge image + mask
-    // and then call set_image with that information
+      // Step 2: Get current image data
+      let image = await this.get_image(true);
+      let dims = this.instance.volumes[0].dims.slice(1, 4);
 
-    let image = this.get_image(true);
+      // Step 3: Apply the mask using utility function
+      let masked_image = Util.harden_mask(image.data, new_mask);
 
-    // TODO here we need to flip one more time, this is until
-    // we use the official niivue infrastructure for adding
-    // a segmentation layer
-    let originalcanvas = this.instance.canvas;
+      // Step 4: Set the new masked data in the overlay volume
+      overlay.setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], masked_image);
+      overlay.opacity = 0.5; // Set opacity for better visualization
 
-    let newcanvas = window.document.createElement('canvas');
-    newcanvas.width = originalcanvas.width;
-    newcanvas.height = originalcanvas.height;
-    // put new_pixels down
-    let ctx = newcanvas.getContext('2d');
-    let imageclamped = new Uint8ClampedArray(image.data);
-    let imagedata = new ImageData(imageclamped, image.width, image.height);
-    ctx.putImageData(imagedata, 0, 0);
-    ctx.save();
-    ctx.scale(1, -1);
-    ctx.drawImage(newcanvas, 0, -newcanvas.height);
-    ctx.restore();
-    image = ctx.getImageData(0, 0, newcanvas.width, newcanvas.height);
-    // end of flip
-
-    let masked_image = Util.harden_mask(image.data, new_mask);
-
-    this.set_image(masked_image, true, true); // rgba data, no flip
-
-
+      // Step 5: Add the overlay to Niivue and update the scene
+      this.instance.addVolume(overlay);
+      this.instance.updateGLVolume();
+    } else {
+      console.error('No volumes loaded to apply the mask');
+    }
   }
-
-  select_box(callback) {
-    return this.canvasFallback.select_box(callback);
-
-  }
-
 }
