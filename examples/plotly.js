@@ -1,17 +1,20 @@
 script = document.createElement("script");
 script.type = "text/javascript";
 script.src = "https://boostlet.org/dist/boostlet.min.js";
+//script.src = 'http://localhost:5500/dist/boostlet.min.js';
 
 script.onload = run;
 document.head.appendChild(script);
 eval(script);
 
-function run() {
+async function run() {
   
   // detect visualization framework
   Boostlet.init();
 
-  all_pixels = Boostlet.get_image().data;
+  all_pixels = await Boostlet.get_image();
+
+  console.log(all_pixels)
 
   // load Plotly.js library and start plotting in the onload callback
   Boostlet.load_script('https://cdn.plot.ly/plotly-2.25.2.min.js', plot);
@@ -35,7 +38,7 @@ function plot() {
 
   // plot the data
   Plotly.newPlot('plotlyDiv', [{
-    x: all_pixels,
+    x: all_pixels.data,
     type: 'histogram'
   }]);
 

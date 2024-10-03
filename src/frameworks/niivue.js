@@ -6,84 +6,62 @@ export class NiiVue extends Framework {
   constructor(instance) {
     super(instance);
     this.name = 'niivue';
+    
+    this.canvasFallback = new CanvasFallback();
+
+    this.flip_on_png = true;
+
+    this.onMouseDown = false;
+    this.x1 = null;
+    this.y1 = null;
+    this.x2 = null;
+    this.y2 = null;
   }
 
-  async get_image(from_volume = true) {
-    if (from_volume && this.instance.volumes.length > 0) {
+  async get_image() {
       let dims = this.instance.volumes[0].dims.slice(1, 4);
-      let start = [0, 0, 0];
-      let end = [dims[0] - 1, dims[1] - 1, dims[2] - 1];
-      let volumeData = this.instance.volumes[0].getVolumeData(start, end);
+      let volumeData = this.instance.volumes[0].getVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]])[0];
       return {
         'data': volumeData,
-        'width': dims[1],
-        'height': dims[2],
+        'width': dims[2],
+        'height': dims[1],
       };
-    } else {
-      // Fallback: Use canvas pixel extraction
-      let ctx = this.instance.gl;
-      let width = ctx.drawingBufferWidth;
-      let height = ctx.drawingBufferHeight;
-      let pixels = new Uint8Array(width * height * 4);
-      ctx.readPixels(0, 0, width, height, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
-      return { data: pixels, width, height };
-    }
   }
 
-  /**
-   * Set the image by applying new pixel data to the volume
-   * @param {Uint8Array} new_pixels - The new pixel data
-   * @param {boolean} is_rgba - Whether the data is in RGBA format
-   * @param {boolean} no_flip - Whether to skip the flip action
-   */
-  async set_image(new_pixels, is_rgba = true, no_flip = false) {
+  async set_image(new_pixels) {
     if (this.instance.volumes.length > 0) {
-      let volume = this.instance.volumes[0];
-      let dims = volume.dims.slice(1, 4); // Extract dimensions
-      let new_data = is_rgba
-        ? new_pixels
-        : Util.grayscale_to_rgba(new_pixels); // Convert to RGBA if needed
+      let dims = this.instance.volumes[0].dims.slice(1, 4);
 
-      // Apply the new volume data
-      volume.setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], new_data);
+      this.instance.volumes[0].setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], new_pixels);
 
-      if (!no_flip) {
-        // Flip if required
-        this.instance.setFlipYAxis(true);
-      }
+      this.instance.updateGLVolume();
 
-      this.instance.updateGLVolume(); // Redraw the updated volume
     } else {
       console.error('No volumes loaded in Niivue');
     }
   }
 
-  /**
-   * Set the mask by overlaying the new mask data
-   * @param {Uint8Array} new_mask - The mask data to apply
-   */
+  async ensureOverlayVolumeLoaded() {
+    if (this.instance.volumes.length !== 1) return
+    let overlayVolume = await this.instance.volumes[0].clone()
+    overlayVolume.zeroImage()
+    overlayVolume.hdr.scl_inter = 0
+    overlayVolume.hdr.scl_slope = 1
+    this.instance.addVolume(overlayVolume)
+  }
+
   async set_mask(new_mask) {
-    if (this.instance.volumes.length > 0) {
-      // Step 1: Clone the existing volume to create an overlay
-      let overlay = this.instance.cloneVolume(0);
-      overlay.img.fill(0); // Initialize the overlay with zeros
+      await this.ensureOverlayVolumeLoaded();
 
-      // Step 2: Get current image data
-      let image = await this.get_image(true);
       let dims = this.instance.volumes[0].dims.slice(1, 4);
+      
+      this.instance.volumes[1].setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], new_mask);
+      this.instance.volumes[1].setColormap('red');
 
-      // Step 3: Apply the mask using utility function
-      let masked_image = Util.harden_mask(image.data, new_mask);
+      this.instance.updateGLVolume();  
+  }
 
-      // Step 4: Set the new masked data in the overlay volume
-      overlay.setVolumeData([0, 0, 0], [dims[0], dims[1], dims[2]], masked_image);
-      overlay.opacity = 0.5; // Set opacity for better visualization
-
-      // Step 5: Add the overlay to Niivue and update the scene
-      this.instance.addVolume(overlay);
-      this.instance.updateGLVolume();
-    } else {
-      console.error('No volumes loaded to apply the mask');
-    }
+  select_box(callback) {
+    return this.canvasFallback.select_box(callback);
   }
 }
