@@ -11,9 +11,9 @@ function tryRun() {
 // Load Boostlet script
 let scriptBoostlet = document.createElement("script");
 scriptBoostlet.type = "text/javascript";
-scriptBoostlet.src = "https://boostlet.org/dist/boostlet.min.js";
+//scriptBoostlet.src = "https://boostlet.org/dist/boostlet.min.js";
 // scriptBoostlet.src = "https://shrutivarade.github.io/boostlet/dist/boostlet.min.js";
-// scriptBoostlet.src = "http://localhost:8000/dist/boostlet.min.js";
+scriptBoostlet.src = "http://localhost:5500/dist/boostlet.min.js";
 scriptBoostlet.onload = function() {
   boostletLoaded = true;
   tryRun();
@@ -54,10 +54,10 @@ function run() {
 
 }
 
-function setup_segment_anything() {
+async function setup_segment_anything() {
 
   url = 'https://model-zoo.metademolab.com/predictions/segment_everything_box_model';
-  image = Boostlet.get_image(true); // grab image from canvas
+  image = await Boostlet.get_image(); // grab image from canvas
   pixels = image.data;
   width = image.width;
   height = image.height;
@@ -100,9 +100,9 @@ async function segment_box(topleft, bottomright) {
   input['last_pred_mask'] = new ort.Tensor("float32", new Float32Array(256 * 256), [1, 1, 256, 256]);
   input['has_last_pred'] = new ort.Tensor("float32", new Float32Array([0]));
 
-  return session.run( input ).then( result => {
+  return session.run( input ).then( async result => {
 
-    Boostlet.set_mask(result.output.data);
+    await Boostlet.set_mask(result.output.data);
 
   }).catch(err => {
 
