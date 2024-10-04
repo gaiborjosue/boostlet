@@ -1,5 +1,5 @@
 let boostletLoaded = false;
-let boxCraftLoaded = false;
+let boxCraftLoaded = true;
 
 function tryRun() {
   if (boostletLoaded && boxCraftLoaded) {
@@ -38,7 +38,7 @@ document.head.appendChild(scriptBoxCraft);
 
 
 
-function run() {
+async function run() {
   
   // detect visualization framework
   Boostlet.init();
@@ -47,7 +47,7 @@ function run() {
   Boostlet.load_script('https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js');
 
   // grab the embedding
-  setup_segment_anything();
+  await setup_segment_anything();
 
   // setup interaction and trigger segmentation
   Boostlet.select_box( segment_box );
@@ -57,10 +57,11 @@ function run() {
 async function setup_segment_anything() {
 
   url = 'https://model-zoo.metademolab.com/predictions/segment_everything_box_model';
-  image = await Boostlet.get_image(); // grab image from canvas
+  image = await Boostlet.get_image(true); // grab image from canvas
   pixels = image.data;
   width = image.width;
   height = image.height;
+
   png_image = Boostlet.convert_to_png(pixels, width, height);
 
   embedding = null;
@@ -82,10 +83,12 @@ async function segment_box(topleft, bottomright) {
   embedding = new ort.Tensor("float32", new Float32Array(uint8arr.buffer), [1, 256, 64, 64]);
   input['low_res_embedding'] = embedding;
 
-  let x1 = topleft.x;
-  let y1 = topleft.y;
-  let x2 = bottomright.x;
-  let y2 = bottomright.y;
+  let x1 = topleft[0];
+  let y1 = topleft[1];
+  let x2 = bottomright[0];
+  let y2 = bottomright[1];
+
+  console.log(topleft, bottomright);
 
   input['point_coords'] = new ort.Tensor("float32", new Float32Array([x1,y1,x2,y2]), [1, 2, 2]);
 
@@ -101,8 +104,8 @@ async function segment_box(topleft, bottomright) {
   input['has_last_pred'] = new ort.Tensor("float32", new Float32Array([0]));
 
   return session.run( input ).then( async result => {
-
-    await Boostlet.set_mask(result.output.data);
+    console.log(result)
+    await Boostlet.set_mask(result.output.cpuData);
 
   }).catch(err => {
 
